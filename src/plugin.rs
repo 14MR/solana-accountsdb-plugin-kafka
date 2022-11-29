@@ -18,8 +18,8 @@ use {
     rdkafka::util::get_rdkafka_version,
     simple_error::simple_error,
     solana_geyser_plugin_interface::geyser_plugin_interface::{
-        GeyserPlugin, GeyserPluginError as PluginError, ReplicaAccountInfo,
-        ReplicaAccountInfoVersions, ReplicaTransactionInfoVersions, Result as PluginResult,
+        GeyserPlugin, GeyserPluginError as PluginError, ReplicaAccountInfoVersions,
+        ReplicaAccountInfoV2, ReplicaTransactionInfoVersions, Result as PluginResult,
         SlotStatus as PluginSlotStatus,
     },
     std::fmt::{Debug, Formatter},
@@ -103,6 +103,7 @@ impl GeyserPlugin for KafkaPlugin {
             rent_epoch: info.rent_epoch,
             data: info.data.to_vec(),
             write_version: info.write_version,
+            txn_signature: info.txn_signature.map(|sig| sig.as_ref().to_owned()),
         };
 
         let publisher = self.unwrap_publisher();
@@ -172,9 +173,10 @@ impl KafkaPlugin {
         self.filter.as_ref().expect("filter is unavailable")
     }
 
-    fn unwrap_update_account(account: ReplicaAccountInfoVersions) -> &ReplicaAccountInfo {
+    fn unwrap_update_account(account: ReplicaAccountInfoVersions) -> &ReplicaAccountInfoV2 {
         match account {
-            ReplicaAccountInfoVersions::V0_0_1(info) => info,
+            ReplicaAccountInfoVersions::V0_0_2(info) => info,
+            _ => panic!("Unsupported ReplicaTransactionInfoVersions::V0_0_1, please upgrade your Solana node.")
         }
     }
 
@@ -218,7 +220,11 @@ impl KafkaPlugin {
         slot: u64,
         transaction: ReplicaTransactionInfoVersions,
     ) -> TransactionEvent {
-        let ReplicaTransactionInfoVersions::V0_0_1(transaction) = transaction;
+        let transaction = if let ReplicaTransactionInfoVersions::V0_0_2(transaction) = transaction {
+            transaction
+        } else {
+            panic!("Unsupported ReplicaTransactionInfoVersions::V0_0_1, please upgrade your Solana node.")
+        };
         let transaction_status_meta = transaction.transaction_status_meta;
         let signature = transaction.signature;
         let is_vote = transaction.is_vote;

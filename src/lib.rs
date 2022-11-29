@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate core;
+
 use solana_geyser_plugin_interface::geyser_plugin_interface::GeyserPlugin;
 
 mod config;
